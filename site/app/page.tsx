@@ -8,6 +8,10 @@ import {
  Eye, BookOpen, Trophy, Layers, Network, Landmark, BarChart3, Play,
  Send, Youtube, Twitter, Music2
 } from 'lucide-react';
+
+import SvgComponent from './components/SVGcomp';
+
+
 interface PriceData { pair: string; price: string; change: number; time: string; }
 interface CalendarEvent { time: string; country: string; event: string; impact: string; forecast: string; previous: string; }
 interface Signal { id: number; type: string; pair: string; catalyst: string; status: string; time: string; analyst: string; thesisPreview: string; }
@@ -48,16 +52,8 @@ const GAMIFICATION = [
  { icon: Network, title: 'Social Trading', desc: 'Follow top analysts, share market views, earn reputation when others follow your thesis.', detail: 'Build macro rep score' },
 ];
 // Logo SVG from your design
-function VibeLogo({ size = 40, dark = true }) {
- return (
-   <svg viewBox="0 0 200 200" width={size} height={size}>
-     <rect x="30" y="20" width="140" height="20" rx="6" fill={dark ? "#80E5FF" : "#3A9BC2"} />
-     <polygon points="100,55 50,145 100,145" fill={dark ? "#FFFFFF" : "#1A2D4E"} />
-     <polygon points="100,55 150,145 100,145" fill={dark ? "#FFFFFF" : "#1A2D4E"} />
-     <rect x="30" y="80" width="140" height="15" rx="4" fill={dark ? "#00FFFF" : "#0EA5E9"} />
-   </svg>
- );
-}
+
+
 export default function LandingPage() {
  const [dark, setDark] = useState(true);
  const [openFaq, setOpenFaq] = useState(0);
@@ -89,7 +85,7 @@ export default function LandingPage() {
      <nav className={`sticky top-0 z-50 ${dark ? "bg-navy/95" : "bg-white/95"} backdrop-blur-sm border-b ${borderCol}`}>
        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
          <div className="flex items-center gap-3">
-           <VibeLogo size={40} dark={dark} />
+           <SvgComponent />
            <div>
              <span className={`text-xl font-bold tracking-[0.08em] ${dark ? "text-white" : "text-navy"}`}>VIBE</span>
              <span className={`text-xl font-bold tracking-[0.08em] ml-1 ${accent}`}>TRADING</span>
@@ -402,7 +398,7 @@ export default function LandingPage() {
      <section className={`py-20 ${dark ? "bg-surface border-y border-border" : "bg-gray-50 border-y border-gray-200"}`}>
        <div className="max-w-3xl mx-auto px-6 text-center">
          <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
-           <VibeLogo size={64} dark={dark} />
+           <SvgComponent />
            <h2 className={`text-3xl sm:text-4xl font-bold mb-4 mt-4 ${textPrimary}`}>Ready to trade with <span className={accent}>purpose</span>?</h2>
            <p className={`text-lg mb-8 ${textSecondary}`}>Join 10,000+ traders who understand the WHY, not just the WHAT.</p>
            <a href="#join" className={`inline-flex items-center gap-2 rounded-sm px-8 py-3 text-sm font-semibold transition-all ${dark ? "bg-cyan text-black" : "bg-teal-700 text-white"}`}>
@@ -415,7 +411,7 @@ export default function LandingPage() {
      <footer className={`py-8 border-t ${borderCol}`}>
        <div className="max-w-7xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
          <div className="flex items-center gap-2">
-           <VibeLogo size={24} dark={dark} />
+           <SvgComponent />
            <span className={`text-xs ${textSecondary}`}>&copy; 2026 Vibe Trading.</span>
          </div>
          <div className="flex items-center gap-5">
