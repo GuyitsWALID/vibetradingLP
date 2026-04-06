@@ -1,0 +1,130 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===== BASE THEME (Dark default) ===== */
+@layer base {
+  :root {
+    --bg-primary: #0B0F14;
+    --bg-secondary: #111820;
+    --bg-elevated: #1a2030;
+    --surface: #111820;
+    --surface-hover: #1a2030;
+    --text-primary: #F5F7FA;
+    --text-secondary: #9CA3AF;
+    --text-muted: #6B7280;
+    --accent: #00A3FF;
+    --accent-hover: #0088DD;
+    --gold: #D4AF37;
+    --bullish: #00D26A;
+    --bearish: #FF4757;
+    --border: #1E2636;
+    --border-hover: #2A3446;
+  }
+
+  .light {
+    --bg-primary: #F5F7FA;
+    --bg-secondary: #FFFFFF;
+    --bg-elevated: #FFFFFF;
+    --surface: #FFFFFF;
+    --surface-hover: #F3F4F6;
+    --text-primary: #0B0F14;
+    --text-secondary: #4B5563;
+    --text-muted: #6B7280;
+    --accent: #00A3FF;
+    --accent-hover: #0088DD;
+    --gold: #B8962E;
+    --bullish: #00A854;
+    --bearish: #DD3040;
+    --border: #E5E7EB;
+    --border-hover: #D1D5DB;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-bg text-text-primary font-sans antialiased;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Monospace for data */
+  .font-data {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* ===== COMPONENTS ===== */
+@layer components {
+  /* Impact dots for calendar */
+  .impact-dot {
+    @apply w-2 h-2 rounded-full inline-block;
+  }
+  .impact-dot.high { @apply bg-red-500; }
+  .impact-dot.medium { @apply bg-accent-gold; }
+  .impact-dot.low { @apply bg-green-500; }
+  .impact-dot.none { @apply bg-gray-600; }
+
+  /* Price change color */
+  .change-up { @apply text-status-bullish; }
+  .change-down { @apply text-status-bearish; }
+
+  /* Card base */
+  .card {
+    @apply bg-bg-secondary border border-border rounded-lg p-4 transition-colors hover:border-border-hover;
+  }
+
+  /* Button variants */
+  .btn-primary {
+    @apply bg-accent-blue text-white font-medium px-4 py-2 rounded-lg 
+           hover:bg-accent active:bg-accent-hover transition-colors
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-secondary {
+    @apply bg-bg-elevated text-text-primary font-medium px-4 py-2 rounded-lg 
+           border border-border hover:border-border-hover transition-colors;
+  }
+  .btn-ghost {
+    @apply text-text-secondary font-medium px-4 py-2 rounded-lg 
+           hover:text-text-primary hover:bg-bg-elevated transition-colors;
+  }
+
+  /* Scrollable container */
+  .scroll-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+  .scroll-thin::-webkit-scrollbar {
+    width: 6px;
+  }
+  .scroll-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scroll-thin::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+  }
+}
+
+/* ===== UTILITIES ===== */
+@layer utilities {
+  /* Tabular numbers for prices */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Text shadow for data clarity on dark bg */
+  .text-glow {
+    text-shadow: 0 0 1px currentColor, 0 0 4px currentColor;
+  }
+
+  /* Gradient borders */
+  .gradient-border-accent {
+    border-image: linear-gradient(135deg, var(--accent), transparent) 1;
+  }
+}

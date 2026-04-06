@@ -1,0 +1,213 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ================================
+// USERS & AUTH
+// ================================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  username      String    @unique
+  passwordHash  String
+  role          Role      @default(FREE)
+  displayName   String?
+  avatarUrl     String?
+  timezone      String    @default("UTC")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  lastLoginAt   DateTime?
+
+  watchlist         WatchlistItem[]
+  pnlEntries        PnLEntry[]
+  educationProgress EducationProgress[]
+  postedSignals     Signal[]
+  chatMessages      ChatMessage[]
+
+  @@index([role])
+  @@index([email])
+}
+
+enum Role {
+  FREE
+  MEMBER
+  ANALYST
+  ADMIN
+}
+
+// ================================
+// WATCHLIST
+// ================================
+
+model WatchlistItem {
+  id         String   @id @default(cuid())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String
+  pair       String   // "EURUSD", "XAUUSD", etc.
+  alertAbove Float?
+  alertBelow Float?
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, pair])
+}
+
+// ================================
+// PnL TRACKER
+// ================================
+
+model PnLEntry {
+  id         String    @id @default(cuid())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String
+  pair       String
+  direction  String    // "LONG" | "SHORT"
+  entry      Float
+  exit       Float?
+  stopLoss   Float?
+  takeProfit Float?
+  result     Float?    // PnL in pips
+  status     String    // "OPEN" | "CLOSED" | "STOPPED"
+  signalId   String?
+  notes      String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([userId, status])
+}
+
+// ================================
+// SIGNALS & THESIS
+// ================================
+
+model Signal {
+  id           String           @id @default(cuid())
+  author       User             @relation(fields: [authorId], references: [id])
+  authorId     String
+
+  pair         String
+  direction    String           // "LONG" | "SHORT"
+
+  // Thesis (visible to all)
+  thesis       String
+  catalyst     String
+  riskPercent  Float
+
+  // Execution levels (gated: MEMBER+)
+  entry        Float?
+  stopLoss     Float?
+  takeProfit   Float?
+
+  invalidation String
+  status       String           // "ACTIVE" | "HIT_TP" | "HIT_SL" | "MANUAL_CLOSE"
+
+  tags         String[]
+  eventPair    String?          // link to calendar event
+  event        EconomicEvent?   @relation(fields: [eventPair], references: [id])
+
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@index([pair, status])
+  @@index([eventPair])
+}
+
+// ================================
+// COMMUNITY CHAT
+// ================================
+
+model ChatMessage {
+  id        String    @id @default(cuid())
+  author    User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId  String
+  eventPair String    // "USD-CPI", "EUR-ECB" — threads by event
+  content   String
+  pinned    Boolean   @default(false)
+
+  // reactions stored as JSON: { "BULLISH": ["uid1", ...], "BEARISH": [...] }
+  reactions Json?
+
+  createdAt DateTime  @default(now())
+
+  @@index([eventPair, createdAt])
+  @@index([authorId])
+}
+
+// ================================
+// ECONOMIC CALENDAR
+// ================================
+
+model EconomicEvent {
+  id        String    @id @default(cuid())
+  title     String
+  country   String    // "USD", "EUR", "GBP", ...
+  impact    Int       // 1=low, 2=med, 3=high
+  timeUTC   DateTime
+  forecast  String?
+  previous  String?
+  actual    String?
+  currency  String?   // affected currency
+  source    String    @default("forex_factory")
+
+  signals Signal[]
+  chatThreads ChatMessage[]
+
+  createdAt DateTime @default(now())
+
+  @@unique([title, timeUTC, source])
+  @@index([timeUTC])
+  @@index([impact])
+}
+
+// ================================
+// NEWS SQUAWK
+// ================================
+
+model SquawkEntry {
+  id       String    @id @default(cuid())
+  headline String
+  source   String    // "FJ" = Financial Juice
+  tags     String[]  // ["fed", "ecb", "cpi"]
+  score    Int       // impact score 1-10
+  hash     String    @unique // dedup hash
+  timeUTC  DateTime
+  createdAt DateTime @default(now())
+
+  @@index([timeUTC])
+  @@index([score])
+}
+
+// ================================
+// EDUCATION
+// ================================
+
+model EducationModule {
+  id          String    @id @default(cuid())
+  title       String
+  description String
+  content     String    // Markdown
+  category    String    // "basics", "central_banks", "indicators"
+  order       Int
+  isPremium   Boolean   @default(false)
+  youtubeUrl  String?
+  createdAt   DateTime  @default(now())
+
+  progress EducationProgress[]
+}
+
+model EducationProgress {
+  id          String            @id @default(cuid())
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+  module      EducationModule   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  moduleId    String
+  completed   Boolean           @default(false)
+  completedAt DateTime?
+
+  @@unique([userId, moduleId])
+}

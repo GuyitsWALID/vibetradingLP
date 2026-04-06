@@ -1,0 +1,13 @@
+node_modules
+.next
+.env
+.env.local
+dist
+build
+*.tgz
+*.log
+.DS_Store
+coverage
+.cache
+tsconfig.tsbuildinfo
+prisma/migrations
