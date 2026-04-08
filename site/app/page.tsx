@@ -14,7 +14,7 @@ import SvgComponent from './components/SVGcomp';
 
 interface PriceData { pair: string; price: string; change: number; time: string; }
 interface CalendarEvent { time: string; country: string; event: string; impact: string; forecast: string; previous: string; }
-interface Signal { id: number; type: string; pair: string; catalyst: string; status: string; time: string; analyst: string; thesisPreview: string; }
+interface NewsBrief { id: number; topic: string; source: string; impact: string; time: string; note: string; }
 interface FAQ { q: string; a: string; }
 const FALLBACK_PRICES: PriceData[] = [
  { pair: 'EUR/USD', price: '1.08742', change: 0.12, time: 'Live' },
@@ -32,10 +32,10 @@ const LIVE_CALENDAR: CalendarEvent[] = [
  { time: '10:00', country: 'UK', event: 'GDP QoQ', impact: 'medium', forecast: '0.1%', previous: '-0.1%' },
  { time: '08:30', country: 'CA', event: 'Trade Balance', impact: 'low', forecast: '2.1B', previous: '1.8B' },
 ];
-const LIVE_SIGNALS: Signal[] = [
- { id: 9, pair: 'EUR/USD', type: 'BUY', catalyst: 'ECB Dovish Surprise', status: 'active', time: '14:22', analyst: '@cipher', thesisPreview: 'ECB cut rates by 25bps. Market underpricing further easing in June.' },
- { id: 8, pair: 'GBP/USD', type: 'SELL', catalyst: 'BOE Hawkish Hold', status: 'hit_tp', time: '12:05', analyst: '@hawk', thesisPreview: 'BOE holds at 5.25%, signals further tightening. GBP weakness into resistance.' },
- { id: 7, pair: 'XAU/USD', type: 'BUY', catalyst: 'Real Yields Drop', status: 'active', time: '09:15', analyst: '@cipher', thesisPreview: 'US 10Y real yields dropping into session. Gold bullish above $2,240.' },
+const LIVE_NEWS: NewsBrief[] = [
+ { id: 9, topic: 'ECB Dovish Surprise', source: 'Macro Desk', impact: 'high', time: '14:22', note: 'ECB cut rates by 25bps. Market is repricing the June meeting path.' },
+ { id: 8, topic: 'BOE Holds at 5.25%', source: 'Rate Watch', impact: 'medium', time: '12:05', note: 'BOE statement stayed cautious, keeping the growth-inflation balance in focus.' },
+ { id: 7, topic: 'Real Yields Slip', source: 'Bond Monitor', impact: 'high', time: '09:15', note: 'US real yields moved lower into session, supporting gold and risk sentiment.' },
 ];
 const FAQS: FAQ[] = [
  { q: 'What is Vibe Trading?', a: 'Vibe Trading is a fundamentals-first forex and macro trading community. We focus on central bank policy, interest rate differentials, economic data (NFP, CPI, GDP), and intermarket correlations —not just chart patterns.' },
@@ -92,7 +92,7 @@ export default function LandingPage() {
            </div>
          </div>
          <div className="hidden md:flex items-center gap-6">
-           {["Mission", "Dashboard", "Signals", "Community"].map(link => (
+           {["Mission", "Dashboard", "Calendar", "Community"].map(link => (
              <a key={link} href={`#${link.toLowerCase()}`} className={`text-sm font-medium transition-colors ${dark ? "text-secondary hover:text-cyan" : "text-gray-600 hover:text-teal-700"}`}>{link}</a>
            ))}
          </div>
@@ -191,7 +191,7 @@ export default function LandingPage() {
          ))}
        </div>
      </section>
-     {/* COMMAND CENTER - TradingView Chart + Signals */}
+    {/* COMMAND CENTER - TradingView Chart + News */}
      <section id="dashboard" className="max-w-7xl mx-auto px-6 pb-20">
        <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="text-center mb-12">
          <div className={`inline-flex items-center gap-2 mb-4 px-3 py-1 rounded-full border ${dark ? "bg-cyan/5 border-cyan/20" : "bg-teal-50 border-teal-200"}`}>
@@ -199,7 +199,7 @@ export default function LandingPage() {
            <span className={`text-xs font-mono ${accent} uppercase tracking-wider`}>Live Command Center</span>
          </div>
          <h2 className={`text-3xl sm:text-4xl font-bold ${textPrimary}`}>Your Trading <span className={accent}>Command Center</span></h2>
-         <p className={`mt-2 ${textSecondary}`}>Real-time charts, calendar, and signals.</p>
+         <p className={`mt-2 ${textSecondary}`}>Real-time charts, calendar, and macro news flow.</p>
        </motion.div>
        {/* TradingView Widget */}
        <div id="tradingview-widget" className="mb-12">
@@ -211,7 +211,7 @@ export default function LandingPage() {
            />
          </div>
        </div>
-       {/* Calendar + Signals */}
+      {/* Calendar + News */}
        <div className="grid md:grid-cols-2 gap-6">
          <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5, delay: 0.1 }}
            className={`rounded-none p-6 border ${bgSurface} ${borderCol}`}>
@@ -234,26 +234,26 @@ export default function LandingPage() {
          </motion.div>
          <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5, delay: 0.2 }} className="space-y-4">
            <div className="flex items-center justify-between">
-             <h3 className="text-lg font-semibold flex items-center gap-2"><TrendingUp className={`h-5 w-5 ${accent}`} /> Recent Signals</h3>
+             <h3 className="text-lg font-semibold flex items-center gap-2"><TrendingUp className={`h-5 w-5 ${accent}`} /> Recent Macro Briefs</h3>
              <span className={`text-sm font-medium ${accent}`}>View All →</span>
            </div>
-           {LIVE_SIGNALS.map((sig, i) => (
-             <motion.div key={sig.id} initial={{ opacity: 0, x: 20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ duration: 0.4, delay: 0.15 * (i + 1) }}
+           {LIVE_NEWS.map((item, i) => (
+             <motion.div key={item.id} initial={{ opacity: 0, x: 20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ duration: 0.4, delay: 0.15 * (i + 1) }}
                className={`rounded-none p-5 border ${bgSurface} ${borderCol} transition-colors ${hoverBorder}`}>
                <div className="flex items-center justify-between mb-3">
                  <div className="flex items-center gap-3">
-                   <span className={`px-2.5 py-1 text-[11px] font-bold tracking-wider ${sig.type === "BUY" ? "bg-bullish text-black" : "bg-bearish text-white"}`}>{sig.type}</span>
-                   <span className={`font-semibold ${textPrimary}`}>{sig.pair}</span>
+                   <span className={`px-2.5 py-1 text-[11px] font-bold tracking-wider ${item.impact === "high" ? "bg-bearish text-white" : item.impact === "medium" ? "bg-impact-middle text-black" : "bg-impact-low text-black"}`}>{item.impact.toUpperCase()}</span>
+                   <span className={`font-semibold ${textPrimary}`}>{item.topic}</span>
                  </div>
-                 <span className={`px-2 py-0.5 text-[10px] font-semibold border ${sig.status === "active" ? "border-cyan text-cyan" : sig.status === "hit_tp" ? "border-bullish text-bullish" : "border-bearish text-bearish"}`}>
-                   {sig.status === "hit_tp" ? "HIT TP" : sig.status === "active" ? "ACTIVE" : "STOPPED"}
+                 <span className={`px-2 py-0.5 text-[10px] font-semibold border border-cyan text-cyan`}>
+                   LIVE
                  </span>
                </div>
-               <p className={`text-sm font-medium ${textPrimary}`}>Catalyst: {sig.catalyst}</p>
-               <p className={`text-sm mt-1 ${textSecondary}`}>{sig.thesisPreview}</p>
+               <p className={`text-sm font-medium ${textPrimary}`}>Source: {item.source}</p>
+               <p className={`text-sm mt-1 ${textSecondary}`}>{item.note}</p>
                <div className={`mt-3 flex items-center gap-4 text-xs ${textSecondary}`}>
-                 <span className="flex items-center gap-1"><Users className="h-3 w-3" />{sig.analyst}</span>
-                 <span>{sig.time}</span>
+                 <span className="flex items-center gap-1"><Users className="h-3 w-3" />Terminal Feed</span>
+                 <span>{item.time}</span>
                </div>
              </motion.div>
            ))}
@@ -300,7 +300,7 @@ export default function LandingPage() {
        </motion.div>
        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
          {[
-           { icon: Send, title: "Telegram", desc: "Real-time command center with pre-event briefs and structured signals.", color: "text-sky-500" },
+           { icon: Send, title: "Telegram", desc: "Real-time command center with pre-event briefs and macro context.", color: "text-sky-500" },
            { icon: Youtube, title: "YouTube", desc: "Deep-dive education: policy cycles, indicator breakdowns, weekly reviews.", color: "text-red-500" },
            { icon: Music2, title: "TikTok", desc: "Rapid macro education in 30-60s clips.", color: "text-pink-500" },
            { icon: Globe, title: "Web Dashboard", desc: "Central hub with live data, charts, calendar, and community tools.", color: accent },
@@ -320,7 +320,7 @@ export default function LandingPage() {
          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
            {[
              { level: "Level 1", title: "Analyst-in-Training", desc: "Basic education, watchlist", color: accent },
-             { level: "Level 2", title: "Research Associate", desc: "Full signals, chat access", color: dark ? "text-blue-400" : "text-blue-700" },
+             { level: "Level 2", title: "Research Associate", desc: "Full news feed, chat access", color: dark ? "text-blue-400" : "text-blue-700" },
              { level: "Level 3", title: "Senior Analyst", desc: "Squawk, custom alerts", color: dark ? "text-yellow-400" : "text-amber-600" },
              { level: "Level 4", title: "Chief Strategist", desc: "API access, 1-on-1s", color: dark ? "text-purple-400" : "text-purple-700" },
            ].map((lvl, i) => (
@@ -343,7 +343,7 @@ export default function LandingPage() {
          {[
            { step: "01", title: "Join Free & Build Watchlist", desc: "Create account, add your pairs, set alerts. Get immediate access to live tickers and calendar." },
            { step: "02", title: "Study Pre-Event Briefs", desc: "Before every NFP, CPI, or rate decision our analysts publish consensus, deviation scenarios, and reaction paths." },
-           { step: "03", title: "Trade with a Thesis", desc: "Every signal includes fundamental reasoning, entry/exit levels, and clear invalidation conditions." },
+           { step: "03", title: "Build a Macro Plan", desc: "Every brief includes fundamental reasoning, risk context, and a clear event playbook." },
          ].map((item, i) => (
            <motion.div key={i} initial={{ opacity: 0, x: -20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ duration: 0.5, delay: 0.15 * i }} className="flex items-start gap-6 mb-8">
              <div className="flex-shrink-0 w-12 h-12 rounded-full bg-cyan/10 border border-cyan/20 flex items-center justify-center">
@@ -362,8 +362,8 @@ export default function LandingPage() {
        <div className="max-w-7xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
          {[
            { value: "10,000+", label: "Active Members" },
-           { value: "2,847", label: "Signals Shared" },
-           { value: "68%", label: "Avg Win Rate" },
+           { value: "12,400", label: "Macro Briefs Published" },
+           { value: "96%", label: "Calendar Coverage" },
            { value: "24/5", label: "Market Coverage" },
          ].map((stat, i) => (
            <motion.div key={i} initial={{ opacity: 0, scale: 0.95 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }} transition={{ duration: 0.4, delay: 0.1 * i }}>

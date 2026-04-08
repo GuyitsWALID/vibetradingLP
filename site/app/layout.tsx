@@ -16,7 +16,7 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "Vibe Trading — Trade with data. Trade with purpose.",
-  description: "Institutional macro trading community. Forex Factory calendar, Financial Juice squawk, live market data, and signal intelligence.",
+  description: "Institutional macro trading community. Economic calendar, live market data, macro news, and community intelligence.",
 };
 
 export default function RootLayout({

@@ -9,17 +9,13 @@
 
 ## 1. System Overview
 
-Vibe Trading is a fundamentals-first forex & macro trading community platform. It delivers real-time market data, economic calendar intelligence, news squawk feeds, and community interaction.
-
-### Product Policy (Mandatory)
-- **No signal product**: This platform does not publish buy/sell calls, entry/SL/TP levels, or signal-room content.
-- **Education and analysis only**: Content is limited to data, macro context, calendar intelligence, and community discussion.
+Vibe Trading is a fundamentals-first forex & macro trading community platform. It delivers real-time market data, economic calendar intelligence, news squawk feeds, thesis-driven signals, and community interaction — all gated by a role-based access model.
 
 ### Core Principles
 - **Fundamentals-first**: Every UI element ties back to macro reasoning
 - **Real-time low-latency**: WebSocket architecture for price updates and squawk
 - **Cache-heavy**: Aggressive caching for external data to respect rate limits
-- **No trading signals**: No trade-call workflows, no level gating, and no signal endpoints in product scope
+- **Role-based gating**: Free users see thesis; paid see exact levels
 - **Mobile-first**: Bottom-nav, swipeable cards, collapsible details
 
 ---
