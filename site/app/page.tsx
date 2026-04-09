@@ -6,7 +6,7 @@ import {
  Activity, Shield, Zap, Globe, ArrowRight, ChevronUp,
  ChevronDown as ChevronDownIcon, Award, Target, Flame,
  Eye, BookOpen, Trophy, Layers, Network, Landmark, BarChart3, Play,
- Send, Youtube, Twitter, Music2, ExternalLink
+ ExternalLink
 } from 'lucide-react';
 
 import SvgComponent from './components/SVGcomp';
@@ -79,6 +79,47 @@ const GAMIFICATION = [
  { icon: Zap, title: 'Level Progression', desc: 'Analyst-in-Training to Research Associate to Senior Analyst to Chief Strategist.', detail: 'Unlock tools and content' },
  { icon: Network, title: 'Social Trading', desc: 'Follow top analysts, share market views, earn reputation when others follow your thesis.', detail: 'Build macro rep score' },
 ];
+
+function TelegramLogo({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>
+      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2Zm4.6 7.06-1.64 7.75c-.12.55-.45.68-.92.42l-2.54-1.87-1.22 1.17c-.13.13-.25.25-.51.25l.18-2.62 4.77-4.31c.21-.18-.04-.29-.32-.11l-5.9 3.71-2.55-.8c-.56-.17-.57-.56.12-.83l9.98-3.85c.46-.17.86.11.71.89Z" />
+    </svg>
+  );
+}
+
+function YouTubeLogo({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>
+      <path d="M23.5 7.2a3 3 0 0 0-2.1-2.1C19.6 4.6 12 4.6 12 4.6s-7.6 0-9.4.5A3 3 0 0 0 .5 7.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 4.8 3 3 0 0 0 2.1 2.1c1.8.5 9.4.5 9.4.5s7.6 0 9.4-.5a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-4.8ZM9.6 15.1V8.9L15.4 12l-5.8 3.1Z" />
+    </svg>
+  );
+}
+
+function TikTokLogo({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>
+      <path d="M14.5 3h2.6c.2 1.7 1.2 3.2 2.8 3.9v2.7a8 8 0 0 1-2.7-.8v5.5a6.4 6.4 0 1 1-6.4-6.4h.4v2.8h-.4a3.6 3.6 0 1 0 3.6 3.6V3Z" />
+    </svg>
+  );
+}
+
+function WebLogo({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true" className={className}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" />
+    </svg>
+  );
+}
+
+function XLogo({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>
+      <path d="M18.9 2H22l-6.8 7.8L23 22h-6.1l-4.8-6.3L6.6 22H3.5l7.3-8.3L1 2h6.3l4.3 5.7L18.9 2Zm-1.1 18h1.7L6.4 3.9H4.6L17.8 20Z" />
+    </svg>
+  );
+}
 // Logo SVG from your design
 
 
@@ -401,7 +442,7 @@ export default function LandingPage() {
            <button onClick={() => setDark(!dark)} className={`w-9 h-9 rounded-full flex items-center justify-center border transition-all ${dark ? "bg-surface border-border text-secondary hover:text-cyan" : "bg-gray-100 border-gray-200 text-gray-600 hover:text-teal-700"}`}>
              {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
            </button>
-           <a href="#join" className={`rounded-sm px-5 py-2 text-sm font-semibold transition-all ${dark ? "bg-cyan text-black" : "bg-teal-700 text-white"}`}>Join Free</a>
+           <a href="/register" className={`rounded-sm px-5 py-2 text-sm font-semibold transition-all ${dark ? "bg-cyan text-black" : "bg-teal-700 text-white"}`}>Sign Up</a>
          </div>
        </div>
      </nav>
@@ -447,11 +488,11 @@ export default function LandingPage() {
              Join Ethiopia&apos;s fastest-growing trading community. Learn to analyze markets like a pro with real-time data, interactive lessons, and expert guidance.
            </p>
            <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
-             <a href="#join" className={`group inline-flex items-center gap-2 rounded-full px-8 py-3 text-sm font-semibold transition-all ${dark ? "bg-cyan text-black" : "bg-teal-700 text-white"}`}>
-               Start Free
+             <a href="/register" className={`group inline-flex items-center gap-2 rounded-full px-8 py-3 text-sm font-semibold transition-all ${dark ? "bg-cyan text-black" : "bg-teal-700 text-white"}`}>
+               Sign Up
                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
              </a>
-             <a href="#dashboard" className={`rounded-full px-8 py-3 text-sm font-semibold border transition-all ${dark ? "border-cyan/30 text-cyan hover:border-cyan hover:bg-cyan/5" : "border-teal-700 text-teal-700 hover:border-teal-700 hover:bg-teal-50"}`}>
+             <a href="/login" className={`rounded-full px-8 py-3 text-sm font-semibold border transition-all ${dark ? "border-cyan/30 text-cyan hover:border-cyan hover:bg-cyan/5" : "border-teal-700 text-teal-700 hover:border-teal-700 hover:bg-teal-50"}`}>
                Explore Dashboard
              </a>
            </div>
@@ -798,17 +839,20 @@ export default function LandingPage() {
        </motion.div>
        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
          {[
-           { icon: Send, title: "Telegram", desc: "Real-time command center with pre-event briefs and macro context.", color: "text-sky-500" },
-           { icon: Youtube, title: "YouTube", desc: "Deep-dive education: policy cycles, indicator breakdowns, weekly reviews.", color: "text-red-500" },
-           { icon: Music2, title: "TikTok", desc: "Rapid macro education in 30-60s clips.", color: "text-pink-500" },
-           { icon: Globe, title: "Web Dashboard", desc: "Central hub with live data, charts, calendar, and community tools.", color: accent },
+           { icon: TelegramLogo, title: "Telegram", desc: "Real-time command center with pre-event briefs and macro context.", color: "text-sky-500", href: "https://t.me/vibetrading_officiall", external: true },
+           { icon: YouTubeLogo, title: "YouTube", desc: "Deep-dive education: policy cycles, indicator breakdowns, weekly reviews.", color: "text-red-500", href: "https://youtube.com/@vibetradingofficial?si=EA8yUC5xz-li74DD", external: true },
+           { icon: TikTokLogo, title: "TikTok", desc: "Rapid macro education in 30-60s clips.", color: "text-pink-500", href: "https://www.tiktok.com/@vibetrades.net?_r=1&_t=ZS-95HwRbZDu9I", external: true },
+           { icon: WebLogo, title: "Web Dashboard", desc: "Central hub with live data, charts, calendar, and community tools.", color: accent, href: "/login", external: false },
          ].map((p, i) => (
-           <motion.div key={i} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.4, delay: 0.1 * i }}
-             className={`rounded-none p-6 border ${bgSurface} ${borderCol} transition-colors ${hoverBorder}`}>
+           <motion.a key={i} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.4, delay: 0.1 * i }}
+             href={p.href}
+             target={p.external ? "_blank" : undefined}
+             rel={p.external ? "noopener noreferrer" : undefined}
+             className={`rounded-none p-6 border ${bgSurface} ${borderCol} transition-colors ${hoverBorder} block`}>
              <p.icon className={`h-8 w-8 mb-4 ${p.color}`} />
              <h3 className={`text-lg font-semibold mb-2 ${textPrimary}`}>{p.title}</h3>
              <p className={`text-sm leading-relaxed ${textSecondary}`}>{p.desc}</p>
-           </motion.div>
+           </motion.a>
          ))}
        </div>
        {/* Level Progression */}
@@ -839,7 +883,7 @@ export default function LandingPage() {
            <p className={textSecondary}>From zero to macro-ready in 3 steps.</p>
          </motion.div>
          {[
-           { step: "01", title: "Join Free & Build Watchlist", desc: "Create account, add your pairs, set alerts. Get immediate access to live tickers and calendar." },
+           { step: "01", title: "Sign Up & Build Watchlist", desc: "Create account, add your pairs, set alerts. Get immediate access to live tickers and calendar." },
            { step: "02", title: "Study Pre-Event Briefs", desc: "Before every NFP, CPI, or rate decision our analysts publish consensus, deviation scenarios, and reaction paths." },
            { step: "03", title: "Build a Macro Plan", desc: "Every brief includes fundamental reasoning, risk context, and a clear event playbook." },
          ].map((item, i) => (
@@ -899,8 +943,8 @@ export default function LandingPage() {
             <SvgComponent className="h-12 w-12 mx-auto" aria-label="Vibe Trading logo" />
            <h2 className={`text-3xl sm:text-4xl font-bold mb-4 mt-4 ${textPrimary}`}>Ready to trade with <span className={accent}>purpose</span>?</h2>
            <p className={`text-lg mb-8 ${textSecondary}`}>Join 10,000+ traders who understand the WHY, not just the WHAT.</p>
-           <a href="#join" className={`inline-flex items-center gap-2 rounded-sm px-8 py-3 text-sm font-semibold transition-all ${dark ? "bg-cyan text-black" : "bg-teal-700 text-white"}`}>
-             Join Free Now <ArrowRight className="h-4 w-4" />
+           <a href="/register" className={`inline-flex items-center gap-2 rounded-sm px-8 py-3 text-sm font-semibold transition-all ${dark ? "bg-cyan text-black" : "bg-teal-700 text-white"}`}>
+             Sign Up <ArrowRight className="h-4 w-4" />
            </a>
          </motion.div>
        </div>
@@ -913,10 +957,10 @@ export default function LandingPage() {
            <span className={`text-xs ${textSecondary}`}>&copy; 2026 Vibe Trading.</span>
          </div>
          <div className="flex items-center gap-5">
-           <a href="https://t.me/" className={`${textSecondary} ${dark ? "hover:text-cyan" : "hover:text-teal-700"} transition-colors`}><Send className="w-5 h-5" /></a>
-           <a href="https://youtube.com/" className={`${textSecondary} ${dark ? "hover:text-cyan" : "hover:text-teal-700"} transition-colors`}><Youtube className="w-5 h-5" /></a>
-           <a href="https://tiktok.com/" className={`${textSecondary} ${dark ? "hover:text-cyan" : "hover:text-teal-700"} transition-colors`}><Music2 className="w-5 h-5" /></a>
-           <a href="https://x.com/" className={`${textSecondary} ${dark ? "hover:text-cyan" : "hover:text-teal-700"} transition-colors`}><Twitter className="w-5 h-5" /></a>
+           <a href="https://t.me/vibetrading_officiall" target="_blank" rel="noopener noreferrer" aria-label="Telegram" className={`${textSecondary} ${dark ? "hover:text-cyan" : "hover:text-teal-700"} transition-colors`}><TelegramLogo className="w-5 h-5" /></a>
+           <a href="https://youtube.com/@vibetradingofficial?si=EA8yUC5xz-li74DD" target="_blank" rel="noopener noreferrer" aria-label="YouTube" className={`${textSecondary} ${dark ? "hover:text-cyan" : "hover:text-teal-700"} transition-colors`}><YouTubeLogo className="w-5 h-5" /></a>
+           <a href="https://www.tiktok.com/@vibetrades.net?_r=1&_t=ZS-95HwRbZDu9I" target="_blank" rel="noopener noreferrer" aria-label="TikTok" className={`${textSecondary} ${dark ? "hover:text-cyan" : "hover:text-teal-700"} transition-colors`}><TikTokLogo className="w-5 h-5" /></a>
+           <a href="https://x.com/" aria-label="X" className={`${textSecondary} ${dark ? "hover:text-cyan" : "hover:text-teal-700"} transition-colors`}><XLogo className="w-5 h-5" /></a>
          </div>
        </div>
      </footer>
