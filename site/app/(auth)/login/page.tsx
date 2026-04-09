@@ -149,7 +149,7 @@ export default function LoginPage() {
 
         <p className={`mt-5 text-sm ${dark ? 'text-secondary' : 'text-gray-600'}`}>
           No account yet?{' '}
-          <Link href="/register" className={`${dark ? 'text-cyan' : 'text-teal-700'} hover:underline`}>
+          <Link href={`/register?next=${encodeURIComponent(getNextPath())}`} className={`${dark ? 'text-cyan' : 'text-teal-700'} hover:underline`}>
             Sign up
           </Link>
         </p>

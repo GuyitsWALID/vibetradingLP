@@ -109,35 +109,49 @@ ConfettiComponent.displayName = "Confetti"
 // Export as Confetti
 export const Confetti = ConfettiComponent
 
-interface ConfettiButtonProps extends React.ComponentProps<"button"> {
+interface ConfettiButtonProps extends React.ComponentProps<typeof Button> {
   options?: ConfettiOptions &
     ConfettiGlobalOptions & { canvas?: HTMLCanvasElement }
 }
+
+type ConfettiButtonClickEvent = Parameters<
+  NonNullable<ConfettiButtonProps["onClick"]>
+>[0]
 
 const ConfettiButtonComponent = ({
   options,
   children,
   ...props
 }: ConfettiButtonProps) => {
-  const handleClick = async (event: React.MouseEvent<HTMLButtonElement>) => {
-    try {
-      const rect = event.currentTarget.getBoundingClientRect()
-      const x = rect.left + rect.width / 2
-      const y = rect.top + rect.height / 2
-      await confetti({
-        ...options,
-        origin: {
-          x: x / window.innerWidth,
-          y: y / window.innerHeight,
-        },
-      })
-    } catch (error) {
+  const { onClick, ...buttonProps } = props
+
+  const handleClick = (event: ConfettiButtonClickEvent) => {
+    onClick?.(event)
+    if (event.defaultPrevented) return
+
+    const target = event.currentTarget as HTMLButtonElement
+    const rect = target.getBoundingClientRect()
+    const x = rect.left + rect.width / 2
+    const y = rect.top + rect.height / 2
+
+    const runConfetti = confetti
+    const confettiPromise = runConfetti?.({
+      ...options,
+      origin: {
+        x: x / window.innerWidth,
+        y: y / window.innerHeight,
+      },
+    })
+
+    if (!confettiPromise) return
+
+    void confettiPromise.catch((error) => {
       console.error("Confetti button error:", error)
-    }
+    })
   }
 
   return (
-    <Button onClick={handleClick} {...props}>
+    <Button onClick={handleClick} {...buttonProps}>
       {children}
     </Button>
   )

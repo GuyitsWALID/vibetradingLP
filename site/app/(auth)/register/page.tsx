@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { FormEvent, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Moon, Sun } from 'lucide-react';
@@ -17,6 +18,7 @@ function GoogleLogo({ className = '' }: { className?: string }) {
 }
 
 export default function RegisterPage() {
+  const router = useRouter();
   const [dark, setDark] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -26,13 +28,19 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
+  const getNextPath = () => {
+    if (typeof window === 'undefined') return '/dashboard';
+    return new URLSearchParams(window.location.search).get('next') || '/dashboard';
+  };
+
   async function handleGoogleSignUp() {
     setGoogleLoading(true);
     setError(null);
     setMessage(null);
 
     const supabase = createClient();
-    const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent('/dashboard')}`;
+    const nextPath = getNextPath();
+    const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}`;
 
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -52,8 +60,12 @@ export default function RegisterPage() {
     setMessage(null);
 
     const supabase = createClient();
+    const nextPath = getNextPath();
 
-    const { error: signUpError } = await supabase.auth.signUp({
+    const {
+      data: { session },
+      error: signUpError,
+    } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -69,7 +81,13 @@ export default function RegisterPage() {
       return;
     }
 
-    setMessage('Account created. Check your email to confirm your account if required.');
+    if (session) {
+      router.push(nextPath);
+      router.refresh();
+      return;
+    }
+
+    setMessage('Account created. Check your email to confirm your account, then sign in.');
     setLoading(false);
   }
 
@@ -167,7 +185,7 @@ export default function RegisterPage() {
 
         <p className={`mt-5 text-sm ${dark ? 'text-secondary' : 'text-gray-600'}`}>
           Already have an account?{' '}
-          <Link href="/login" className={`${dark ? 'text-cyan' : 'text-teal-700'} hover:underline`}>
+          <Link href={`/login?next=${encodeURIComponent(getNextPath())}`} className={`${dark ? 'text-cyan' : 'text-teal-700'} hover:underline`}>
             Sign in
           </Link>
         </p>
