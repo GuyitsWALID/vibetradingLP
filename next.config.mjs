@@ -5,8 +5,6 @@ const nextConfig = {
       bodySizeLimit: '2mb',
     },
   },
-  // ISR for signal feed, education modules
-  revalidate: 60,
   // Image optimization
   images: {
     remotePatterns: [

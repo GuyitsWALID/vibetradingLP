@@ -12,13 +12,13 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  const supabase = createClient();
-
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
     setError(null);
     setMessage(null);
+
+    const supabase = createClient();
 
     const { error: signUpError } = await supabase.auth.signUp({
       email,
