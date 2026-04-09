@@ -10,13 +10,20 @@ import {
 } from 'lucide-react';
 
 import SvgComponent from './components/SVGcomp';
+import { Confetti } from '@/components/ui/confetti';
+import { ConfettiSideCannons } from '@/components/ui/confetti-side-cannons';
 
 
 interface PriceData { pair: string; price: string; change: number; time: string; }
 interface CalendarEvent { date?: string; time: string; country: string; event: string; impact: string; forecast: string; previous: string; }
 interface CalendarApiResponse { events: CalendarEvent[]; isLive: boolean; }
+interface DailyQuizQuestion { id: string; prompt: string; options: string[]; answerIndex: number; explanation: string; }
+interface DailyQuizResponse { dateKey: string; questions: DailyQuizQuestion[]; }
 interface NewsBrief { id: number | string; topic: string; source: string; impact: string; time: string; note: string; url?: string | null; }
 interface FAQ { q: string; a: string; }
+
+const DAILY_QUIZ_MAX_TRIES = 3;
+const DAILY_QUIZ_XP_REWARD = 50;
 
 const toDateKey = (date: Date) => {
  const year = date.getUTCFullYear();
@@ -82,6 +89,18 @@ export default function LandingPage() {
  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
  const [calendarIsLive, setCalendarIsLive] = useState(true);
  const [newsBriefs, setNewsBriefs] = useState(FALLBACK_NEWS);
+ const [quizDateKey, setQuizDateKey] = useState('');
+ const [dailyQuestions, setDailyQuestions] = useState<DailyQuizQuestion[]>([]);
+ const [quizSelections, setQuizSelections] = useState<number[]>([]);
+ const [quizSolved, setQuizSolved] = useState<boolean[]>([]);
+ const [quizFeedback, setQuizFeedback] = useState<Array<'correct' | 'incorrect' | null>>([]);
+ const [currentQuizStep, setCurrentQuizStep] = useState(0);
+ const [quizAttemptsUsed, setQuizAttemptsUsed] = useState(0);
+ const [quizWon, setQuizWon] = useState(false);
+ const [playWinConfetti, setPlayWinConfetti] = useState(false);
+ const [quizLoading, setQuizLoading] = useState(true);
+ const [quizError, setQuizError] = useState<string | null>(null);
+ const [xpAwarded, setXpAwarded] = useState(false);
  const [calendarUpdatedAt, setCalendarUpdatedAt] = useState<string | null>(null);
  const [newsUpdatedAt, setNewsUpdatedAt] = useState<string | null>(null);
  const [selectedCalendarDate, setSelectedCalendarDate] = useState(() => toDateKey(new Date()));
@@ -169,6 +188,186 @@ export default function LandingPage() {
      source.close();
    };
  }, []);
+
+ useEffect(() => {
+   const fetchDailyQuiz = async () => {
+     setQuizLoading(true);
+     setQuizError(null);
+
+     try {
+       const res = await fetch('/api/daily-fundamentals-quiz', { cache: 'no-store' });
+       if (!res.ok) {
+         throw new Error('Failed to load daily quiz');
+       }
+
+       const data = (await res.json()) as DailyQuizResponse;
+       if (!data || !Array.isArray(data.questions) || data.questions.length !== 2 || !data.dateKey) {
+         throw new Error('Invalid quiz payload');
+       }
+
+       setQuizDateKey(data.dateKey);
+       setDailyQuestions(data.questions);
+
+       const initialSelections = Array.from({ length: data.questions.length }, () => -1);
+       const initialSolved = Array.from({ length: data.questions.length }, () => false);
+       const initialFeedback = Array.from({ length: data.questions.length }, () => null as 'correct' | 'incorrect' | null);
+
+       let restored = false;
+       const savedRaw = localStorage.getItem(`vibe_daily_quiz_progress_${data.dateKey}`);
+       if (savedRaw) {
+         try {
+           const saved = JSON.parse(savedRaw);
+           if (Array.isArray(saved?.selections) && Array.isArray(saved?.solved) && Array.isArray(saved?.feedback)) {
+             setQuizSelections(saved.selections);
+             setQuizSolved(saved.solved);
+             setQuizFeedback(saved.feedback);
+             setQuizAttemptsUsed(Number(saved.attemptsUsed || 0));
+             setQuizWon(Boolean(saved.won));
+             setXpAwarded(Boolean(saved.xpAwarded));
+             setPlayWinConfetti(false);
+             setCurrentQuizStep(
+               Number.isInteger(saved.currentStep)
+                 ? Number(saved.currentStep)
+                 : (Boolean(saved.won) || Number(saved.attemptsUsed || 0) >= DAILY_QUIZ_MAX_TRIES ? data.questions.length : 0)
+             );
+             restored = true;
+           }
+         } catch {
+           restored = false;
+         }
+       }
+
+       if (!restored) {
+         setQuizSelections(initialSelections);
+         setQuizSolved(initialSolved);
+         setQuizFeedback(initialFeedback);
+         setQuizAttemptsUsed(0);
+         setQuizWon(false);
+         setXpAwarded(false);
+         setPlayWinConfetti(false);
+         setCurrentQuizStep(0);
+       }
+     } catch {
+       setQuizError('Daily challenge is warming up. Please refresh in a moment.');
+     } finally {
+       setQuizLoading(false);
+     }
+   };
+
+   fetchDailyQuiz();
+ }, []);
+
+ useEffect(() => {
+   if (!quizDateKey || dailyQuestions.length !== 2) return;
+
+   localStorage.setItem(
+     `vibe_daily_quiz_progress_${quizDateKey}`,
+     JSON.stringify({
+       dateKey: quizDateKey,
+       selections: quizSelections,
+       solved: quizSolved,
+       feedback: quizFeedback,
+      currentStep: currentQuizStep,
+       attemptsUsed: quizAttemptsUsed,
+       won: quizWon,
+       xpAwarded,
+     })
+   );
+ }, [quizDateKey, dailyQuestions.length, quizSelections, quizSolved, quizFeedback, currentQuizStep, quizAttemptsUsed, quizWon, xpAwarded]);
+
+ const triesLeft = Math.max(0, DAILY_QUIZ_MAX_TRIES - quizAttemptsUsed);
+ const quizLocked = quizWon || quizAttemptsUsed >= DAILY_QUIZ_MAX_TRIES;
+ const activeQuestion = currentQuizStep < dailyQuestions.length ? dailyQuestions[currentQuizStep] : null;
+
+ useEffect(() => {
+   if (!playWinConfetti) return;
+
+   const timeout = setTimeout(() => {
+     setPlayWinConfetti(false);
+   }, 3200);
+
+   return () => clearTimeout(timeout);
+ }, [playWinConfetti]);
+
+ const saveRewardXp = () => {
+   if (xpAwarded) return;
+
+   let pending = { xp: 0 };
+   const raw = localStorage.getItem('vibe_pending_xp');
+   if (raw) {
+     try {
+       pending = JSON.parse(raw);
+     } catch {
+       pending = { xp: 0 };
+     }
+   }
+
+   localStorage.setItem(
+     'vibe_pending_xp',
+     JSON.stringify({
+       xp: Number(pending.xp || 0) + DAILY_QUIZ_XP_REWARD,
+       source: 'daily-fundamentals-quiz',
+       dateKey: quizDateKey,
+       updatedAt: new Date().toISOString(),
+     })
+   );
+
+   setXpAwarded(true);
+ }
+
+ const chooseQuizOption = (optionIndex: number) => {
+   if (quizLocked) return;
+   if (currentQuizStep >= dailyQuestions.length) return;
+
+   setQuizSelections((prev) => {
+     const next = [...prev];
+     next[currentQuizStep] = optionIndex;
+     return next;
+   });
+ }
+
+ const submitQuizAttempt = () => {
+   if (quizLocked || dailyQuestions.length !== 2) return;
+   if (!activeQuestion) return;
+
+   const selected = quizSelections[currentQuizStep];
+   if (selected === undefined || selected < 0) {
+     setQuizError('Pick one answer before submitting.');
+     return;
+   }
+
+   setQuizError(null);
+
+   const correct = selected === activeQuestion.answerIndex;
+   const feedback = [...quizFeedback];
+   feedback[currentQuizStep] = correct ? 'correct' : 'incorrect';
+
+   const solved = [...quizSolved];
+   if (correct) {
+     solved[currentQuizStep] = true;
+   }
+
+   const attempts = quizAttemptsUsed + 1;
+   const won = solved.every(Boolean);
+
+   setQuizFeedback(feedback);
+   setQuizSolved(solved);
+   setQuizAttemptsUsed(attempts);
+   setQuizWon(won);
+
+   if (won) {
+     saveRewardXp();
+     setPlayWinConfetti(true);
+     setTimeout(() => setCurrentQuizStep(dailyQuestions.length), 350);
+     return;
+   }
+
+   if (correct) {
+     setTimeout(() => setCurrentQuizStep((prev) => Math.min(prev + 1, dailyQuestions.length)), 350);
+   } else if (attempts >= DAILY_QUIZ_MAX_TRIES) {
+     setCurrentQuizStep(dailyQuestions.length);
+   }
+ }
 
  const formatLastUpdated = (iso: string | null) => {
    if (!iso) return 'Not synced yet';
@@ -439,6 +638,152 @@ export default function LandingPage() {
              </motion.div>
            ))}
          </div>
+         <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5, delay: 0.25 }}
+           className={`mt-10 rounded-none p-6 border ${dark ? 'bg-black/50 border-border' : 'bg-white border-gray-200'}`}>
+           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+             <h3 className={`text-xl font-semibold ${textPrimary}`}>Daily AI Fundamentals Challenge</h3>
+             <span className={`text-xs font-mono px-2 py-1 border ${dark ? 'border-cyan/30 text-cyan' : 'border-teal-700/30 text-teal-700'}`}>
+               2 new questions daily • 3 tries
+             </span>
+           </div>
+
+           {quizLoading ? (
+             <p className={`text-sm ${textSecondary}`}>Loading today&apos;s challenge...</p>
+           ) : quizError ? (
+             <p className="text-sm text-red-500">{quizError}</p>
+           ) : (
+             <>
+               <AnimatePresence mode="wait">
+                 {activeQuestion ? (
+                   <motion.div
+                     key={activeQuestion.id}
+                     initial={{ opacity: 0, x: 30 }}
+                     animate={{ opacity: 1, x: 0 }}
+                     exit={{ opacity: 0, x: -30 }}
+                     transition={{ duration: 0.25 }}
+                     className="space-y-4"
+                   >
+                     <div className="flex items-center justify-between gap-3">
+                       <span className={`text-xs font-mono px-2 py-1 border ${dark ? 'border-cyan/30 text-cyan' : 'border-teal-700/30 text-teal-700'}`}>
+                         Question {currentQuizStep + 1} / {dailyQuestions.length}
+                       </span>
+                       <span className={`text-xs font-medium ${textSecondary}`}>Tries left: {triesLeft}</span>
+                     </div>
+
+                     <div className={`p-4 border ${borderCol}`}>
+                       <p className={`text-sm font-semibold mb-3 ${textPrimary}`}>Q{currentQuizStep + 1}. {activeQuestion.prompt}</p>
+                       <div className="grid sm:grid-cols-2 gap-2">
+                         {activeQuestion.options.map((option, optionIndex) => {
+                           const selected = quizSelections[currentQuizStep] === optionIndex;
+                           const isCorrectAnswer = optionIndex === activeQuestion.answerIndex;
+                           const showCorrect = quizFeedback[currentQuizStep] === 'correct' && isCorrectAnswer;
+                           const showWrong = selected && quizFeedback[currentQuizStep] === 'incorrect';
+
+                           const tone = showCorrect
+                             ? (dark ? 'border-emerald-500/60 bg-emerald-500/10 text-emerald-300' : 'border-emerald-600/40 bg-emerald-50 text-emerald-700')
+                             : showWrong
+                             ? (dark ? 'border-red-500/60 bg-red-500/10 text-red-300' : 'border-red-600/40 bg-red-50 text-red-700')
+                             : selected
+                             ? (dark ? 'border-cyan/60 bg-cyan/10 text-cyan' : 'border-teal-700/40 bg-teal-50 text-teal-700')
+                             : (dark ? 'border-border text-secondary hover:border-cyan/30' : 'border-gray-300 text-gray-700 hover:border-teal-700/30');
+
+                           return (
+                             <button
+                               key={`${activeQuestion.id}-${optionIndex}`}
+                               type="button"
+                               onClick={() => chooseQuizOption(optionIndex)}
+                               disabled={quizLocked}
+                               className={`text-left text-sm px-3 py-2 border transition-colors ${tone} ${quizLocked ? 'cursor-not-allowed opacity-90' : ''}`}
+                             >
+                               {option}
+                             </button>
+                           );
+                         })}
+                       </div>
+
+                       {quizFeedback[currentQuizStep] && (
+                         <p className={`mt-2 text-xs ${quizFeedback[currentQuizStep] === 'correct' ? (dark ? 'text-emerald-300' : 'text-emerald-700') : (dark ? 'text-red-300' : 'text-red-700')}`}>
+                           {quizFeedback[currentQuizStep] === 'correct'
+                             ? activeQuestion.explanation
+                             : 'Not quite. Review the setup and try again.'}
+                         </p>
+                       )}
+                     </div>
+
+                     <div className="flex flex-wrap items-center gap-3">
+                       <button
+                         type="button"
+                         onClick={submitQuizAttempt}
+                         disabled={quizLocked}
+                         className={`px-5 py-2 text-sm font-semibold ${quizLocked ? (dark ? 'bg-zinc-800 text-zinc-400' : 'bg-gray-200 text-gray-500') : (dark ? 'bg-cyan text-black' : 'bg-teal-700 text-white')}`}
+                       >
+                         Submit Answer
+                       </button>
+                       <span className={`text-xs font-medium ${textSecondary}`}>Date: {quizDateKey}</span>
+                     </div>
+                   </motion.div>
+                 ) : (
+                   <motion.div
+                     key="quiz-final"
+                     initial={{ opacity: 0, x: 30 }}
+                     animate={{ opacity: 1, x: 0 }}
+                     exit={{ opacity: 0, x: -30 }}
+                     transition={{ duration: 0.25 }}
+                   >
+                     {quizWon ? (
+                      <div className={`relative overflow-hidden p-4 border ${dark ? 'border-emerald-500/60 bg-emerald-500/10' : 'border-emerald-600/40 bg-emerald-50'}`}>
+                        <ConfettiSideCannons active={playWinConfetti} />
+                        {playWinConfetti && (
+                          <Confetti
+                            className="pointer-events-none absolute inset-0 z-10 h-full w-full"
+                            options={{
+                              particleCount: 140,
+                              spread: 95,
+                              startVelocity: 42,
+                              ticks: 260,
+                              scalar: 0.9,
+                              origin: { x: 0.5, y: 0.2 },
+                            }}
+                          />
+                        )}
+                        <div className="pointer-events-none absolute inset-0">
+                          <span className="absolute left-[10%] top-3 h-2 w-2 rounded-full bg-yellow-300 animate-bounce" />
+                          <span className="absolute left-[22%] top-7 h-1.5 w-1.5 rounded-full bg-pink-400 animate-pulse" />
+                          <span className="absolute left-[40%] top-2 h-2 w-2 rounded-full bg-cyan animate-bounce" />
+                          <span className="absolute left-[58%] top-8 h-1.5 w-1.5 rounded-full bg-emerald-300 animate-pulse" />
+                          <span className="absolute left-[74%] top-3 h-2 w-2 rounded-full bg-orange-300 animate-bounce" />
+                          <span className="absolute left-[88%] top-7 h-1.5 w-1.5 rounded-full bg-violet-300 animate-pulse" />
+                        </div>
+                        <p className={`text-base font-semibold text-center ${dark ? 'text-emerald-300' : 'text-emerald-700'}`}>
+                          🎉
+                        </p>
+                        <p className={`mt-1 text-sm font-semibold text-center ${dark ? 'text-emerald-300' : 'text-emerald-700'}`}>
+                           You won {DAILY_QUIZ_XP_REWARD} XP. Want to continue with your progress? Sign up.
+                         </p>
+                        <div className="mt-4 flex justify-center">
+                          <a href="/register" className={`inline-flex items-center justify-center min-w-[220px] px-8 py-3 text-base font-bold ${dark ? 'bg-cyan text-black' : 'bg-teal-700 text-white'}`}>
+                            Sign Up
+                          </a>
+                        </div>
+                       </div>
+                     ) : (
+                       <div className={`p-4 border ${dark ? 'border-red-500/60 bg-red-500/10' : 'border-red-600/40 bg-red-50'}`}>
+                        <p className={`text-sm font-semibold text-center ${dark ? 'text-red-300' : 'text-red-700'}`}>
+                           Sign up to learn more, or sign up to try again in your dashboard.
+                         </p>
+                        <div className="mt-4 flex justify-center">
+                          <a href="/register" className={`inline-flex items-center justify-center min-w-[220px] px-8 py-3 text-base font-bold ${dark ? 'bg-cyan text-black' : 'bg-teal-700 text-white'}`}>
+                            Sign Up
+                          </a>
+                        </div>
+                       </div>
+                     )}
+                   </motion.div>
+                 )}
+               </AnimatePresence>
+             </>
+           )}
+         </motion.div>
        </div>
      </section>
      {/* COMMUNITY */}
