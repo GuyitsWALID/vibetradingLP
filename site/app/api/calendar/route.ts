@@ -1,5 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+const RAPIDAPI_HOST = 'forex-factory-scraper1.p.rapidapi.com';
+
+type CalendarEvent = {
+  date: string | null;
+  time: string;
+  country: string;
+  event: string;
+  impact: string;
+  forecast: string;
+  previous: string;
+};
+
+type CalendarResponse = {
+  events: CalendarEvent[];
+  isLive: boolean;
+};
+
 const FALLBACK_CALENDAR = [
   {
     time: '13:30',
@@ -177,10 +194,129 @@ function toCountryCode(rawCountry: string) {
   return normalized.slice(0, 2);
 }
 
+function applyCalendarImpactPriority(events: CalendarEvent[]) {
+  const highMedium = events.filter((item) => item.impact === 'high' || item.impact === 'medium');
+
+  if (highMedium.length > 0) {
+    return highMedium.slice(0, 8);
+  }
+
+  return events.filter((item) => item.impact === 'low').slice(0, 8);
+}
+
+function splitDateKey(dateKey: string) {
+  const match = dateKey.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  return { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) };
+}
+
+function getRapidApiKey() {
+  return (
+    process.env.RAPIDAPI_KEY ||
+    process.env.RAPID_API_KEY ||
+    process.env.X_RAPIDAPI_KEY ||
+    ''
+  );
+}
+
+function normalizeRapidApiItem(item: Record<string, unknown>): CalendarEvent {
+  const dateKey = parseEventDate(String(item.date ?? item.event_date ?? item.day ?? ''));
+  const time = normalizeTime(String(item.time ?? item.event_time ?? item.eventTime ?? 'TBA'));
+  const country = toCountryCode(String(item.currency ?? item.country ?? item.currency_code ?? item.ccy ?? 'NA'));
+  const event = stripCdataArtifacts(String(item.event_name ?? item.event ?? item.title ?? 'Economic event'));
+  const impact = normalizeImpact(String(item.impact ?? item.impact_level ?? item.volatility ?? 'low'));
+  const forecast = stripCdataArtifacts(String(item.forecast ?? item.consensus ?? item.expected ?? 'N/A'));
+  const previous = stripCdataArtifacts(String(item.previous ?? item.prior ?? item.last ?? 'N/A'));
+
+  return {
+    date: dateKey,
+    time,
+    country,
+    event,
+    impact,
+    forecast,
+    previous,
+  };
+}
+
+async function fetchRapidApiCalendar(selectedDate: string) {
+  const key = getRapidApiKey();
+  const dateParts = splitDateKey(selectedDate);
+
+  if (!key || !dateParts) {
+    return null;
+  }
+
+  const baseParams = new URLSearchParams({
+    year: String(dateParts.year),
+    month: String(dateParts.month),
+    day: String(dateParts.day),
+    currency: 'ALL',
+    event_name: 'ALL',
+    timezone: 'GMT+00:00 UTC',
+    time_format: '12h',
+  });
+
+  const endpoints = [
+    `https://${RAPIDAPI_HOST}/get_real_time_calendar_details?calendar=Forex&${baseParams.toString()}`,
+    `https://${RAPIDAPI_HOST}/get_calendar_details?${baseParams.toString()}`,
+  ];
+
+  for (const endpoint of endpoints) {
+    try {
+      const response = await fetch(endpoint, {
+        headers: {
+          'Content-Type': 'application/json',
+          'x-rapidapi-host': RAPIDAPI_HOST,
+          'x-rapidapi-key': key,
+        },
+        next: { revalidate: 300 },
+      });
+
+      if (!response.ok) {
+        continue;
+      }
+
+      const payload: any = await response.json();
+      const rawItems: unknown[] =
+        (Array.isArray(payload) ? payload : null) ||
+        (Array.isArray(payload?.data) ? payload.data : null) ||
+        (Array.isArray(payload?.result) ? payload.result : null) ||
+        (Array.isArray(payload?.events) ? payload.events : null) ||
+        [];
+
+      const parsed: CalendarEvent[] = rawItems
+        .filter((item): item is Record<string, unknown> => Boolean(item && typeof item === 'object'))
+        .map(normalizeRapidApiItem)
+        .filter((item) => item.event && item.event !== 'Economic event' && item.date === selectedDate)
+        .sort((a, b) => getTimeSortScore(a.time) - getTimeSortScore(b.time));
+
+      const prioritized = applyCalendarImpactPriority(parsed);
+
+      if (prioritized.length > 0) {
+        return prioritized;
+      }
+    } catch {
+      // Move to next endpoint candidate or fallback provider.
+    }
+  }
+
+  return null;
+}
+
 export async function GET(request: NextRequest) {
   const selectedDate = request.nextUrl.searchParams.get('date') || getTodayUtcDateKey();
 
   try {
+    const rapidApiEvents = await fetchRapidApiCalendar(selectedDate);
+    if (rapidApiEvents) {
+      const response: CalendarResponse = {
+        events: rapidApiEvents,
+        isLive: true,
+      };
+      return NextResponse.json(response);
+    }
+
     const res = await fetch('https://nfs.faireconomy.media/ff_calendar_thisweek.xml', {
       next: { revalidate: 300 },
       headers: {
@@ -189,14 +325,22 @@ export async function GET(request: NextRequest) {
     });
 
     if (!res.ok) {
-      return NextResponse.json(FALLBACK_CALENDAR);
+      const response: CalendarResponse = {
+        events: applyCalendarImpactPriority(FALLBACK_CALENDAR.map((item) => ({ ...item, date: selectedDate }))),
+        isLive: false,
+      };
+      return NextResponse.json(response);
     }
 
     const xml = await res.text();
     const eventBlocks = xml.match(/<event>[\s\S]*?<\/event>/gi) || [];
 
     if (eventBlocks.length === 0) {
-      return NextResponse.json(FALLBACK_CALENDAR);
+      const response: CalendarResponse = {
+        events: applyCalendarImpactPriority(FALLBACK_CALENDAR.map((item) => ({ ...item, date: selectedDate }))),
+        isLive: false,
+      };
+      return NextResponse.json(response);
     }
 
     const parsed = eventBlocks
@@ -220,11 +364,21 @@ export async function GET(request: NextRequest) {
         };
       })
       .filter((item) => item.event && item.event !== 'Economic event' && item.date === selectedDate)
-      .sort((a, b) => getTimeSortScore(a.time) - getTimeSortScore(b.time))
-      .slice(0, 8);
+      .sort((a, b) => getTimeSortScore(a.time) - getTimeSortScore(b.time));
 
-    return NextResponse.json(parsed.length > 0 ? parsed : []);
+    const prioritized = applyCalendarImpactPriority(parsed);
+
+    const response: CalendarResponse = {
+      events: prioritized,
+      isLive: true,
+    };
+
+    return NextResponse.json(response);
   } catch {
-    return NextResponse.json(FALLBACK_CALENDAR);
+    const response: CalendarResponse = {
+      events: applyCalendarImpactPriority(FALLBACK_CALENDAR.map((item) => ({ ...item, date: selectedDate }))),
+      isLive: false,
+    };
+    return NextResponse.json(response);
   }
 }

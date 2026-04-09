@@ -14,6 +14,7 @@ import SvgComponent from './components/SVGcomp';
 
 interface PriceData { pair: string; price: string; change: number; time: string; }
 interface CalendarEvent { date?: string; time: string; country: string; event: string; impact: string; forecast: string; previous: string; }
+interface CalendarApiResponse { events: CalendarEvent[]; isLive: boolean; }
 interface NewsBrief { id: number | string; topic: string; source: string; impact: string; time: string; note: string; url?: string | null; }
 interface FAQ { q: string; a: string; }
 
@@ -79,6 +80,7 @@ export default function LandingPage() {
  const [openFaq, setOpenFaq] = useState(0);
  const [prices, setPrices] = useState(FALLBACK_PRICES);
  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
+ const [calendarIsLive, setCalendarIsLive] = useState(true);
  const [newsBriefs, setNewsBriefs] = useState(FALLBACK_NEWS);
  const [calendarUpdatedAt, setCalendarUpdatedAt] = useState<string | null>(null);
  const [newsUpdatedAt, setNewsUpdatedAt] = useState<string | null>(null);
@@ -109,16 +111,32 @@ export default function LandingPage() {
    const fetchCalendar = async () => {
      try {
        const res = await fetch(`/api/calendar?date=${encodeURIComponent(selectedCalendarDate)}`);
-       if (res.ok) {
-         const data = await res.json();
-         if (Array.isArray(data)) {
-           setCalendarEvents(data);
-           setCalendarUpdatedAt(new Date().toISOString());
-         }
+       if (!res.ok) {
+         setCalendarEvents(FALLBACK_CALENDAR);
+         setCalendarIsLive(false);
+         setCalendarUpdatedAt(new Date().toISOString());
+         return;
+       }
+
+       const data = await res.json();
+       if (Array.isArray(data)) {
+         setCalendarEvents(data);
+         setCalendarIsLive(true);
+         setCalendarUpdatedAt(new Date().toISOString());
+         return;
+       }
+
+       const payload = data as Partial<CalendarApiResponse>;
+       if (Array.isArray(payload.events)) {
+         setCalendarEvents(payload.events);
+         setCalendarIsLive(Boolean(payload.isLive));
+         setCalendarUpdatedAt(new Date().toISOString());
        }
      } catch {
        // Keep fallback data when provider is unavailable.
        setCalendarEvents(FALLBACK_CALENDAR);
+       setCalendarIsLive(false);
+       setCalendarUpdatedAt(new Date().toISOString());
      }
    };
 
@@ -301,7 +319,13 @@ export default function LandingPage() {
            className="">
            <div className="flex items-center justify-between mb-4">
              <h3 className="text-lg font-semibold flex items-center gap-2"><Calendar className={`h-5 w-5 ${accent}`} /> Economic Calendar</h3>
-             <span className={`text-xs font-medium ${accent}`}>Updated {formatLastUpdated(calendarUpdatedAt)}</span>
+             <div className="flex items-center gap-3">
+               <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-semibold border ${calendarIsLive ? (dark ? 'border-emerald-500/60 text-emerald-300' : 'border-emerald-600/40 text-emerald-700') : (dark ? 'border-red-500/60 text-red-300' : 'border-red-600/40 text-red-700')}`}>
+                 <span className={`h-1.5 w-1.5 rounded-full ${calendarIsLive ? 'bg-emerald-400' : 'bg-red-500'}`} />
+                 {calendarIsLive ? 'LIVE' : 'NOT LIVE DATA'}
+               </span>
+               <span className={`text-xs font-medium ${accent}`}>Updated {formatLastUpdated(calendarUpdatedAt)}</span>
+             </div>
            </div>
            <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
              <div className={`text-xs font-medium ${textSecondary}`}>
@@ -337,7 +361,10 @@ export default function LandingPage() {
                     <span className={`px-2.5 py-1 text-[11px] font-bold tracking-wider ${evt.impact === "high" ? "bg-bearish text-white" : evt.impact === "medium" ? "bg-impact-middle text-black" : "bg-impact-low text-black"}`}>{evt.impact.toUpperCase()}</span>
                     <span className={`font-semibold ${textPrimary}`}>{evt.event}</span>
                   </div>
-                  <span className={`px-2 py-0.5 text-[10px] font-semibold border border-cyan text-cyan`}>LIVE</span>
+                  <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-semibold border ${calendarIsLive ? (dark ? 'border-emerald-500/60 text-emerald-300' : 'border-emerald-600/40 text-emerald-700') : (dark ? 'border-red-500/60 text-red-300' : 'border-red-600/40 text-red-700')}`}>
+                    <span className={`h-1.5 w-1.5 rounded-full ${calendarIsLive ? 'bg-emerald-400' : 'bg-red-500'}`} />
+                    {calendarIsLive ? 'LIVE' : 'NOT LIVE DATA'}
+                  </span>
                 </div>
 
                 <p className={`text-sm font-medium ${textPrimary}`}>Time: <span className="font-mono">{evt.time}</span> <span className={`ml-2 px-2 py-0.5 text-xs border ${dark ? 'border-zinc-700 bg-zinc-900' : 'border-gray-300 bg-gray-100'}`}>{evt.country}</span></p>
