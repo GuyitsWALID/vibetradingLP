@@ -6,16 +6,36 @@ import {
  Activity, Shield, Zap, Globe, ArrowRight, ChevronUp,
  ChevronDown as ChevronDownIcon, Award, Target, Flame,
  Eye, BookOpen, Trophy, Layers, Network, Landmark, BarChart3, Play,
- Send, Youtube, Twitter, Music2
+ Send, Youtube, Twitter, Music2, ExternalLink
 } from 'lucide-react';
 
 import SvgComponent from './components/SVGcomp';
 
 
 interface PriceData { pair: string; price: string; change: number; time: string; }
-interface CalendarEvent { time: string; country: string; event: string; impact: string; forecast: string; previous: string; }
-interface NewsBrief { id: number; topic: string; source: string; impact: string; time: string; note: string; }
+interface CalendarEvent { date?: string; time: string; country: string; event: string; impact: string; forecast: string; previous: string; }
+interface NewsBrief { id: number | string; topic: string; source: string; impact: string; time: string; note: string; url?: string | null; }
 interface FAQ { q: string; a: string; }
+
+const toDateKey = (date: Date) => {
+ const year = date.getUTCFullYear();
+ const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+ const day = String(date.getUTCDate()).padStart(2, '0');
+ return `${year}-${month}-${day}`;
+};
+
+const formatDateLabel = (dateKey: string) => {
+ const date = new Date(`${dateKey}T00:00:00Z`);
+ if (Number.isNaN(date.getTime())) return dateKey;
+ return date.toLocaleDateString('en-GB', {
+   weekday: 'short',
+   day: '2-digit',
+   month: 'short',
+   year: 'numeric',
+   timeZone: 'UTC',
+ });
+};
+
 const FALLBACK_PRICES: PriceData[] = [
  { pair: 'EUR/USD', price: '1.08742', change: 0.12, time: 'Live' },
  { pair: 'GBP/USD', price: '1.27385', change: -0.08, time: 'Live' },
@@ -26,13 +46,13 @@ const FALLBACK_PRICES: PriceData[] = [
  { pair: 'NZD/USD', price: '0.60870', change: -0.22, time: 'Live' },
  { pair: 'DXY', price: '98.040', change: -0.18, time: 'Live' },
 ];
-const LIVE_CALENDAR: CalendarEvent[] = [
+const FALLBACK_CALENDAR: CalendarEvent[] = [
  { time: '13:30', country: 'US', event: 'NFP Non-Farm Payrolls', impact: 'high', forecast: '180K', previous: '205K' },
  { time: '15:00', country: 'EU', event: 'ECB Rate Decision', impact: 'high', forecast: '4.50%', previous: '4.50%' },
  { time: '10:00', country: 'UK', event: 'GDP QoQ', impact: 'medium', forecast: '0.1%', previous: '-0.1%' },
  { time: '08:30', country: 'CA', event: 'Trade Balance', impact: 'low', forecast: '2.1B', previous: '1.8B' },
 ];
-const LIVE_NEWS: NewsBrief[] = [
+const FALLBACK_NEWS: NewsBrief[] = [
  { id: 9, topic: 'ECB Dovish Surprise', source: 'Macro Desk', impact: 'high', time: '14:22', note: 'ECB cut rates by 25bps. Market is repricing the June meeting path.' },
  { id: 8, topic: 'BOE Holds at 5.25%', source: 'Rate Watch', impact: 'medium', time: '12:05', note: 'BOE statement stayed cautious, keeping the growth-inflation balance in focus.' },
  { id: 7, topic: 'Real Yields Slip', source: 'Bond Monitor', impact: 'high', time: '09:15', note: 'US real yields moved lower into session, supporting gold and risk sentiment.' },
@@ -58,6 +78,11 @@ export default function LandingPage() {
  const [dark, setDark] = useState(true);
  const [openFaq, setOpenFaq] = useState(0);
  const [prices, setPrices] = useState(FALLBACK_PRICES);
+ const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
+ const [newsBriefs, setNewsBriefs] = useState(FALLBACK_NEWS);
+ const [calendarUpdatedAt, setCalendarUpdatedAt] = useState<string | null>(null);
+ const [newsUpdatedAt, setNewsUpdatedAt] = useState<string | null>(null);
+ const [selectedCalendarDate, setSelectedCalendarDate] = useState(() => toDateKey(new Date()));
  const accent = dark ? "text-cyan" : "text-teal-700";
  const bgBase = dark ? "bg-black" : "bg-white";
  const bgSurface = dark ? "bg-surface" : "bg-gray-50";
@@ -79,13 +104,72 @@ export default function LandingPage() {
    const iv = setInterval(fetchPrices, 10000);
    return () => clearInterval(iv);
  }, []);
+
+ useEffect(() => {
+   const fetchCalendar = async () => {
+     try {
+       const res = await fetch(`/api/calendar?date=${encodeURIComponent(selectedCalendarDate)}`);
+       if (res.ok) {
+         const data = await res.json();
+         if (Array.isArray(data)) {
+           setCalendarEvents(data);
+           setCalendarUpdatedAt(new Date().toISOString());
+         }
+       }
+     } catch {
+       // Keep fallback data when provider is unavailable.
+       setCalendarEvents(FALLBACK_CALENDAR);
+     }
+   };
+
+   fetchCalendar();
+   const iv = setInterval(fetchCalendar, 60000);
+   return () => clearInterval(iv);
+ }, [selectedCalendarDate]);
+
+ useEffect(() => {
+   const source = new EventSource('/api/news/stream');
+
+   const onNews = (event: MessageEvent<string>) => {
+     try {
+       const payload = JSON.parse(event.data) as { news?: NewsBrief[]; updatedAt?: string };
+       if (Array.isArray(payload.news) && payload.news.length > 0) {
+         setNewsBriefs(payload.news);
+       }
+       if (payload.updatedAt) {
+         setNewsUpdatedAt(payload.updatedAt);
+       }
+     } catch {
+       // Keep current data if payload parsing fails.
+     }
+   };
+
+   source.addEventListener('news', onNews as EventListener);
+
+   return () => {
+     source.removeEventListener('news', onNews as EventListener);
+     source.close();
+   };
+ }, []);
+
+ const formatLastUpdated = (iso: string | null) => {
+   if (!iso) return 'Not synced yet';
+   const date = new Date(iso);
+   if (Number.isNaN(date.getTime())) return 'Not synced yet';
+   return date.toLocaleTimeString('en-GB', {
+     hour: '2-digit',
+     minute: '2-digit',
+     hour12: false,
+     timeZone: 'UTC',
+   }) + ' UTC';
+ };
  return (
    <div className={`min-h-screen ${bgBase} text-white transition-colors duration-300`}>
      {/* NAVBAR */}
      <nav className={`sticky top-0 z-50 ${dark ? "bg-navy/95" : "bg-white/95"} backdrop-blur-sm border-b ${borderCol}`}>
        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
          <div className="flex items-center gap-3">
-           <SvgComponent />
+           <SvgComponent className="h-10 w-10" aria-label="Vibe Trading logo" />
            <div>
              <span className={`text-xl font-bold tracking-[0.08em] ${dark ? "text-white" : "text-navy"}`}>VIBE</span>
              <span className={`text-xl font-bold tracking-[0.08em] ml-1 ${accent}`}>TRADING</span>
@@ -214,42 +298,84 @@ export default function LandingPage() {
       {/* Calendar + News */}
        <div className="grid md:grid-cols-2 gap-6">
          <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5, delay: 0.1 }}
-           className={`rounded-none p-6 border ${bgSurface} ${borderCol}`}>
+           className="">
            <div className="flex items-center justify-between mb-4">
              <h3 className="text-lg font-semibold flex items-center gap-2"><Calendar className={`h-5 w-5 ${accent}`} /> Economic Calendar</h3>
-             <span className={`text-sm font-medium ${accent}`}>View All →</span>
+             <span className={`text-xs font-medium ${accent}`}>Updated {formatLastUpdated(calendarUpdatedAt)}</span>
            </div>
-           <div className="space-y-3">
-             {LIVE_CALENDAR.map((evt, i) => (
-               <div key={i} className={`flex items-center gap-4 py-3 px-3 text-sm ${dark ? "bg-black/50" : "bg-white border border-gray-200"}`}>
-                 <span className={`font-mono text-[13px] tabular-nums w-12 ${dark ? "text-secondary" : "text-gray-600"}`}>{evt.time}</span>
-                  <span className={`text-[11px] font-mono font-bold ${dark ? "text-cyan" : "text-teal-700"}`}>{evt.country}</span>
-                 <span className={`flex-1 font-medium ${textPrimary}`}>{evt.event}</span>
-                 <span className={`text-[11px] font-semibold uppercase ${evt.impact === "high" ? "text-impact-high" : evt.impact === "medium" ? "text-impact-middle" : "text-impact-low"}`}>
-                   {evt.impact.toUpperCase()}
-                 </span>
-               </div>
-             ))}
+           <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+             <div className={`text-xs font-medium ${textSecondary}`}>
+               Showing: <span className={`${textPrimary} font-semibold`}>{formatDateLabel(selectedCalendarDate)} (UTC)</span>
+             </div>
+             <div className="flex items-center gap-2">
+               <button
+                 onClick={() => setSelectedCalendarDate(toDateKey(new Date()))}
+                 className={`px-3 py-1.5 text-xs font-semibold border ${dark ? 'border-cyan/40 text-cyan hover:bg-cyan/10' : 'border-teal-700/40 text-teal-700 hover:bg-teal-50'}`}
+               >
+                 Today
+               </button>
+               <input
+                 type="date"
+                 value={selectedCalendarDate}
+                 onChange={(event) => setSelectedCalendarDate(event.target.value)}
+                 className={`px-2.5 py-1.5 text-xs border outline-none ${dark ? 'border-zinc-700 bg-zinc-900 text-zinc-100' : 'border-gray-300 bg-white text-gray-900'}`}
+               />
+             </div>
+           </div>
+           <div className="space-y-4">
+            {calendarEvents.length === 0 ? (
+              <div className={`rounded-none p-5 border ${bgSurface} ${borderCol}`}>
+                <p className={`text-sm ${textSecondary}`}>
+                  No scheduled Forex Factory events for {formatDateLabel(selectedCalendarDate)}.
+                </p>
+              </div>
+            ) : calendarEvents.map((evt, i) => (
+              <motion.div key={`${evt.time}-${evt.country}-${evt.event}-${i}`} initial={{ opacity: 0, x: -20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ duration: 0.4, delay: 0.12 * (i + 1) }}
+                className={`rounded-none p-5 border ${bgSurface} ${borderCol} transition-colors ${hoverBorder}`}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <span className={`px-2.5 py-1 text-[11px] font-bold tracking-wider ${evt.impact === "high" ? "bg-bearish text-white" : evt.impact === "medium" ? "bg-impact-middle text-black" : "bg-impact-low text-black"}`}>{evt.impact.toUpperCase()}</span>
+                    <span className={`font-semibold ${textPrimary}`}>{evt.event}</span>
+                  </div>
+                  <span className={`px-2 py-0.5 text-[10px] font-semibold border border-cyan text-cyan`}>LIVE</span>
+                </div>
+
+                <p className={`text-sm font-medium ${textPrimary}`}>Time: <span className="font-mono">{evt.time}</span> <span className={`ml-2 px-2 py-0.5 text-xs border ${dark ? 'border-zinc-700 bg-zinc-900' : 'border-gray-300 bg-gray-100'}`}>{evt.country}</span></p>
+                <p className={`text-sm mt-1 ${textSecondary}`}>Forecast: {evt.forecast} | Previous: {evt.previous}</p>
+
+                <div className={`mt-3 flex items-center gap-4 text-xs ${textSecondary}`}>
+                  <span className="flex items-center gap-1"><Users className="h-3 w-3" />Economic Feed</span>
+                  <span>{evt.time}</span>
+                </div>
+              </motion.div>
+            ))}
            </div>
          </motion.div>
          <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5, delay: 0.2 }} className="space-y-4">
            <div className="flex items-center justify-between">
-             <h3 className="text-lg font-semibold flex items-center gap-2"><TrendingUp className={`h-5 w-5 ${accent}`} /> Recent Macro Briefs</h3>
-             <span className={`text-sm font-medium ${accent}`}>View All →</span>
+             <h3 className="text-lg font-semibold flex items-center gap-2"><TrendingUp className={`h-5 w-5 ${accent}`} /> Live Macro Feed</h3>
+             <span className={`text-xs font-medium ${accent}`}>Updated {formatLastUpdated(newsUpdatedAt)}</span>
            </div>
-           {LIVE_NEWS.map((item, i) => (
+           {newsBriefs.map((item, i) => (
              <motion.div key={item.id} initial={{ opacity: 0, x: 20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ duration: 0.4, delay: 0.15 * (i + 1) }}
                className={`rounded-none p-5 border ${bgSurface} ${borderCol} transition-colors ${hoverBorder}`}>
                <div className="flex items-center justify-between mb-3">
                  <div className="flex items-center gap-3">
                    <span className={`px-2.5 py-1 text-[11px] font-bold tracking-wider ${item.impact === "high" ? "bg-bearish text-white" : item.impact === "medium" ? "bg-impact-middle text-black" : "bg-impact-low text-black"}`}>{item.impact.toUpperCase()}</span>
-                   <span className={`font-semibold ${textPrimary}`}>{item.topic}</span>
+                   {item.url ? (
+                     <a href={item.url} target="_blank" rel="noopener noreferrer" className={`font-semibold inline-flex items-center gap-1 hover:underline ${textPrimary}`}>
+                       {item.topic}
+                       <ExternalLink className="h-3.5 w-3.5" />
+                     </a>
+                   ) : (
+                     <span className={`font-semibold ${textPrimary}`}>{item.topic}</span>
+                   )}
                  </div>
                  <span className={`px-2 py-0.5 text-[10px] font-semibold border border-cyan text-cyan`}>
                    LIVE
                  </span>
                </div>
-               <p className={`text-sm font-medium ${textPrimary}`}>Source: {item.source}</p>
+               <p className={`text-sm font-medium ${textPrimary}`}>Source: <span className={`px-2 py-0.5 text-xs border ${dark ? 'border-zinc-700 bg-zinc-900' : 'border-gray-300 bg-gray-100'}`}>{item.source}</span></p>
                <p className={`text-sm mt-1 ${textSecondary}`}>{item.note}</p>
                <div className={`mt-3 flex items-center gap-4 text-xs ${textSecondary}`}>
                  <span className="flex items-center gap-1"><Users className="h-3 w-3" />Terminal Feed</span>
@@ -398,7 +524,7 @@ export default function LandingPage() {
      <section className={`py-20 ${dark ? "bg-surface border-y border-border" : "bg-gray-50 border-y border-gray-200"}`}>
        <div className="max-w-3xl mx-auto px-6 text-center">
          <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
-           <SvgComponent />
+            <SvgComponent className="h-12 w-12 mx-auto" aria-label="Vibe Trading logo" />
            <h2 className={`text-3xl sm:text-4xl font-bold mb-4 mt-4 ${textPrimary}`}>Ready to trade with <span className={accent}>purpose</span>?</h2>
            <p className={`text-lg mb-8 ${textSecondary}`}>Join 10,000+ traders who understand the WHY, not just the WHAT.</p>
            <a href="#join" className={`inline-flex items-center gap-2 rounded-sm px-8 py-3 text-sm font-semibold transition-all ${dark ? "bg-cyan text-black" : "bg-teal-700 text-white"}`}>
@@ -411,7 +537,7 @@ export default function LandingPage() {
      <footer className={`py-8 border-t ${borderCol}`}>
        <div className="max-w-7xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
          <div className="flex items-center gap-2">
-           <SvgComponent />
+            <SvgComponent className="h-8 w-8" aria-label="Vibe Trading logo" />
            <span className={`text-xs ${textSecondary}`}>&copy; 2026 Vibe Trading.</span>
          </div>
          <div className="flex items-center gap-5">

@@ -9,6 +9,9 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        primary: "#F5F5F5",
+        secondary: "#A6A6A6",
+        muted: "#69F0AE",
         background: "#000000",
         surface: "#1A2D4E",
         "surface-hover": "#1E3560",
