@@ -15,6 +15,14 @@ import { ConfettiSideCannons } from '@/components/ui/confetti-side-cannons';
 
 
 interface PriceData { pair: string; price: string; change: number; time: string; }
+interface PricesApiResponse {
+ prices: PriceData[];
+ source?: 'finnhub' | 'open-er-api' | 'frankfurter' | 'stooq';
+ isLive?: boolean;
+ status?: 'live' | 'unavailable';
+ message?: string;
+ updatedAt?: string;
+}
 interface CalendarEvent { date?: string; time: string; country: string; event: string; impact: string; forecast: string; previous: string; }
 interface CalendarApiResponse { events: CalendarEvent[]; isLive: boolean; }
 interface DailyQuizQuestion { id: string; prompt: string; options: string[]; answerIndex: number; explanation: string; }
@@ -44,16 +52,7 @@ const formatDateLabel = (dateKey: string) => {
  });
 };
 
-const FALLBACK_PRICES: PriceData[] = [
- { pair: 'EUR/USD', price: '1.08742', change: 0.12, time: 'Live' },
- { pair: 'GBP/USD', price: '1.27385', change: -0.08, time: 'Live' },
- { pair: 'USD/JPY', price: '149.420', change: 0.34, time: 'Live' },
- { pair: 'XAU/USD', price: '2,248.60', change: 0.56, time: 'Live' },
- { pair: 'AUD/USD', price: '0.65432', change: -0.15, time: 'Live' },
- { pair: 'USD/CAD', price: '1.36102', change: 0.04, time: 'Live' },
- { pair: 'NZD/USD', price: '0.60870', change: -0.22, time: 'Live' },
- { pair: 'DXY', price: '98.040', change: -0.18, time: 'Live' },
-];
+const FALLBACK_PRICES: PriceData[] = [];
 const FALLBACK_CALENDAR: CalendarEvent[] = [
  { time: '13:30', country: 'US', event: 'NFP Non-Farm Payrolls', impact: 'high', forecast: '180K', previous: '205K' },
  { time: '15:00', country: 'EU', event: 'ECB Rate Decision', impact: 'high', forecast: '4.50%', previous: '4.50%' },
@@ -69,7 +68,7 @@ const FAQS: FAQ[] = [
  { q: 'What is Vibe Trading?', a: 'Vibe Trading is a fundamentals-first forex and macro trading community. We focus on central bank policy, interest rate differentials, economic data (NFP, CPI, GDP), and intermarket correlations —not just chart patterns.' },
  { q: 'What are the gamification features?', a: 'Earn "Macro Coins" for correctly predicting high-impact events. Build streaks, climb the Macro Ladder with XP, and unlock badges like "Institutional Analyst" and "Yield Curve Whisperer".' },
  { q: 'Do I need trading experience?', a: 'No. We educate from basics to advanced macro concepts. Structured learning paths take you from understanding central banks to reading yield curves.' },
- { q: 'How does real-time data work?', a: 'TwelveData for live price feeds, Forex Factory for economic calendar, Financial Juice for squawk. Updates every 1-3 seconds.' },
+ { q: 'How does real-time data work?', a: 'Stooq powers the primary delayed forex feed, Frankfurter is fallback for core pairs, EODHD provides economic and fundamentals data, and streaming macro headlines add context.' },
 ];
 const GAMIFICATION = [
  { icon: Flame, title: 'Streak Engine', desc: 'Build daily analysis streaks by reviewing economic releases. Longer streaks = more Macro Coins.', detail: '30-day streak unlocks badge' },
@@ -126,7 +125,11 @@ function XLogo({ className = '' }: { className?: string }) {
 export default function LandingPage() {
  const [dark, setDark] = useState(true);
  const [openFaq, setOpenFaq] = useState(0);
- const [prices, setPrices] = useState(FALLBACK_PRICES);
+ const [prices, setPrices] = useState<PriceData[]>([]);
+ const [pricesSource, setPricesSource] = useState<'finnhub' | 'open-er-api' | 'frankfurter' | 'stooq'>('stooq');
+ const [pricesLive, setPricesLive] = useState(false);
+ const [pricesStatusMessage, setPricesStatusMessage] = useState<string | null>(null);
+ const [pricesUpdatedAt, setPricesUpdatedAt] = useState<string | null>(null);
  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
  const [calendarIsLive, setCalendarIsLive] = useState(true);
  const [newsBriefs, setNewsBriefs] = useState(FALLBACK_NEWS);
@@ -145,6 +148,9 @@ export default function LandingPage() {
  const [calendarUpdatedAt, setCalendarUpdatedAt] = useState<string | null>(null);
  const [newsUpdatedAt, setNewsUpdatedAt] = useState<string | null>(null);
  const [selectedCalendarDate, setSelectedCalendarDate] = useState(() => toDateKey(new Date()));
+ const isCatalogOnly = Boolean(pricesStatusMessage?.toLowerCase().includes('quote/rates are not enabled'));
+ const isDelayedFeed = pricesSource === 'open-er-api' || pricesSource === 'frankfurter' || pricesSource === 'stooq' || Boolean(pricesStatusMessage?.toLowerCase().includes('delayed'));
+ const pricesModeLabel = pricesLive ? 'Live' : isCatalogOnly ? 'Catalog-only' : isDelayedFeed ? 'Delayed' : 'Unavailable';
  const accent = dark ? "text-cyan" : "text-teal-700";
  const bgBase = dark ? "bg-black" : "bg-white";
  const bgSurface = dark ? "bg-surface" : "bg-gray-50";
@@ -155,22 +161,39 @@ export default function LandingPage() {
  useEffect(() => {
    const fetchPrices = async () => {
      try {
-       const res = await fetch("/api/prices");
+       const res = await fetch(`/api/prices?t=${Date.now()}`, { cache: 'no-store' });
        if (res.ok) {
          const data = await res.json();
-         if (data.length > 0) setPrices(data);
+
+         if (Array.isArray(data) && data.length > 0) {
+           setPrices(data);
+           setPricesSource('stooq');
+           setPricesLive(false);
+           setPricesStatusMessage('Using local fallback payload shape.');
+           setPricesUpdatedAt(new Date().toISOString());
+           return;
+         }
+
+         const payload = data as Partial<PricesApiResponse>;
+         if (Array.isArray(payload.prices)) {
+           setPrices(payload.prices);
+           setPricesSource(payload.source || 'stooq');
+           setPricesLive(Boolean(payload.isLive));
+           setPricesStatusMessage(payload.message || null);
+           setPricesUpdatedAt(payload.updatedAt || new Date().toISOString());
+         }
        }
      } catch (err) { /* fallback */ }
    };
    fetchPrices();
-   const iv = setInterval(fetchPrices, 10000);
+   const iv = setInterval(fetchPrices, 15000);
    return () => clearInterval(iv);
  }, []);
 
  useEffect(() => {
    const fetchCalendar = async () => {
      try {
-       const res = await fetch(`/api/calendar?date=${encodeURIComponent(selectedCalendarDate)}`);
+      const res = await fetch(`/api/calendar?date=${encodeURIComponent(selectedCalendarDate)}`);
        if (!res.ok) {
          setCalendarEvents(FALLBACK_CALENDAR);
          setCalendarIsLive(false);
@@ -449,16 +472,25 @@ export default function LandingPage() {
      {/* TICKER */}
      <div className={`w-full overflow-hidden ${dark ? "bg-black border-border" : "bg-white border-gray-200"} border-b py-2`}>
        <div className="ticker-track">
-         {[...prices, ...prices, ...prices].map((item, i) => (
-           <span key={i} className="flex items-center gap-2 whitespace-nowrap text-[13px]">
-             <span className={`font-sans font-medium ${dark ? "text-secondary" : "text-gray-600"}`}>{item.pair}</span>
-             <span className={`font-mono font-medium tabular-nums ${dark ? "text-white" : "text-black"}`}>{item.price}</span>
-             <span className={`font-mono tabular-nums text-[11px] flex items-center gap-1 ${item.change >= 0 ? "text-bullish" : "text-bearish"}`}>
-               {item.change >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
-               {item.change >= 0 ? "+" : ""}{item.change}%
+         {prices.length > 0 ? (
+           [...prices, ...prices, ...prices].map((item, i) => (
+             <span key={i} className="flex items-center gap-2 whitespace-nowrap text-[13px]">
+               <span className={`font-sans font-medium ${dark ? "text-secondary" : "text-gray-600"}`}>{item.pair}</span>
+               <span className={`font-mono font-medium tabular-nums ${dark ? "text-white" : "text-black"}`}>{item.price}</span>
+               <span className={`font-mono tabular-nums text-[11px] flex items-center gap-1 ${item.change >= 0 ? "text-bullish" : "text-bearish"}`}>
+                 {item.change >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+                 {item.change >= 0 ? "+" : ""}{item.change}%
+               </span>
              </span>
+           ))
+         ) : (
+           <span className={`px-6 text-[12px] ${dark ? 'text-secondary' : 'text-gray-600'}`}>
+             FX feed temporarily unavailable. Waiting for free provider update.
            </span>
-         ))}
+         )}
+       </div>
+       <div className={`px-6 mt-1 text-[10px] font-mono ${dark ? 'text-secondary/70' : 'text-gray-500'}`}>
+         DELAYED
        </div>
      </div>
      {/* HERO */}
